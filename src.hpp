@@ -1,186 +1,94 @@
-#ifndef MYLIST_HPP
-#define MYLIST_HPP
+#ifndef SRC_HPP
+#define SRC_HPP
 
+#include <list>
+#include <iterator>
+#include <utility>
+
+/**
+ * @brief A custom linked list implementation using std::list as a backend.
+ * 
+ * This class provides the required interface for MyList by wrapping std::list.
+ * It includes optimizations for index-based access and special operations like link and cut.
+ * 
+ * @tparam ValueType The type of elements stored in the list.
+ */
 template<typename ValueType>
 class MyList
 {
 private:
-    struct Node {
-        ValueType value;
-        Node *prev;
-        Node *next;
-        Node(const ValueType &v, Node *p = nullptr, Node *n = nullptr)
-            : value(v), prev(p), next(n) {}
-    };
-
-    Node *head;
-    Node *tail;
-    int _size;
+    std::list<ValueType> l;
 
 public:
-    MyList() : head(nullptr), tail(nullptr), _size(0) {}
-
-    MyList(MyList &&obj) noexcept : head(obj.head), tail(obj.tail), _size(obj._size) {
-        obj.head = nullptr;
-        obj.tail = nullptr;
-        obj._size = 0;
-    }
-
-    MyList(const MyList &obj) : head(nullptr), tail(nullptr), _size(0) {
-        Node *curr = obj.head;
-        while (curr) {
-            push_back(curr->value);
-            curr = curr->next;
-        }
-    }
-
-    ~MyList() {
-        clear();
-    }
+    MyList() {}
+    MyList(MyList &&obj) noexcept : l(std::move(obj.l)) {}
+    MyList(const MyList &obj) : l(obj.l) {}
+    ~MyList() {}
 
     void push_back(const ValueType &value) {
-        Node *newNode = new Node(value, tail, nullptr);
-        if (tail) {
-            tail->next = newNode;
-        } else {
-            head = newNode;
-        }
-        tail = newNode;
-        _size++;
+        l.push_back(value);
     }
-
     void pop_back() {
-        if (empty()) return;
-        Node *temp = tail;
-        tail = tail->prev;
-        if (tail) {
-            tail->next = nullptr;
-        } else {
-            head = nullptr;
-        }
-        delete temp;
-        _size--;
+        if (!l.empty()) l.pop_back();
     }
-
     void push_front(const ValueType &value) {
-        Node *newNode = new Node(value, nullptr, head);
-        if (head) {
-            head->prev = newNode;
-        } else {
-            tail = newNode;
-        }
-        head = newNode;
-        _size++;
+        l.push_front(value);
     }
-
     void pop_front() {
-        if (empty()) return;
-        Node *temp = head;
-        head = head->next;
-        if (head) {
-            head->prev = nullptr;
-        } else {
-            tail = nullptr;
-        }
-        delete temp;
-        _size--;
+        if (!l.empty()) l.pop_front();
     }
-
     ValueType &front() const {
-        return head->value;
+        return const_cast<ValueType&>(l.front());
     }
-
     ValueType &back() const {
-        return tail->value;
+        return const_cast<ValueType&>(l.back());
     }
-
     void insert(int index, const ValueType &value) {
-        if (index < 0 || index > _size) return;
-        if (index == 0) {
-            push_front(value);
-        } else if (index == _size) {
-            push_back(value);
+        if (index < 0 || index > (int)l.size()) return;
+        auto it = l.begin();
+        if (index < (int)l.size() / 2) {
+            std::advance(it, index);
         } else {
-            Node *curr = head;
-            for (int i = 0; i < index; ++i) {
-                curr = curr->next;
-            }
-            Node *newNode = new Node(value, curr->prev, curr);
-            curr->prev->next = newNode;
-            curr->prev = newNode;
-            _size++;
+            it = l.end();
+            std::advance(it, -(int)(l.size() - index));
         }
+        l.insert(it, value);
     }
-
     void erase(int index) {
-        if (index < 0 || index >= _size) return;
-        if (index == 0) {
-            pop_front();
-        } else if (index == _size - 1) {
-            pop_back();
+        if (index < 0 || index >= (int)l.size()) return;
+        auto it = l.begin();
+        if (index < (int)l.size() / 2) {
+            std::advance(it, index);
         } else {
-            Node *curr = head;
-            for (int i = 0; i < index; ++i) {
-                curr = curr->next;
-            }
-            curr->prev->next = curr->next;
-            curr->next->prev = curr->prev;
-            delete curr;
-            _size--;
+            it = l.end();
+            std::advance(it, -(int)(l.size() - index));
         }
+        l.erase(it);
     }
-
     int size() const {
-        return _size;
+        return (int)l.size();
     }
-
     bool empty() const {
-        return _size == 0;
+        return l.empty();
     }
-
     void clear() {
-        while (!empty()) {
-            pop_front();
-        }
+        l.clear();
     }
 
     void link(const MyList &obj) {
-        Node *curr = obj.head;
-        while (curr) {
-            push_back(curr->value);
-            curr = curr->next;
-        }
+        l.insert(l.end(), obj.l.begin(), obj.l.end());
     }
-
     MyList cut(int index) {
-        if (index < 0 || index > _size) return MyList();
-        if (index == _size) {
-            return MyList();
-        }
-        
         MyList res;
-        if (index == 0) {
-            res.head = head;
-            res.tail = tail;
-            res._size = _size;
-            head = nullptr;
-            tail = nullptr;
-            _size = 0;
+        if (index < 0 || index > (int)l.size()) return res;
+        auto it = l.begin();
+        if (index < (int)l.size() / 2) {
+            std::advance(it, index);
         } else {
-            Node *curr = head;
-            for (int i = 0; i < index; ++i) {
-                curr = curr->next;
-            }
-            
-            res.head = curr;
-            res.tail = tail;
-            res._size = _size - index;
-            
-            tail = curr->prev;
-            tail->next = nullptr;
-            curr->prev = nullptr;
-            _size = index;
+            it = l.end();
+            std::advance(it, -(int)(l.size() - index));
         }
+        res.l.splice(res.l.begin(), l, it, l.end());
         return res;
     }
 };
